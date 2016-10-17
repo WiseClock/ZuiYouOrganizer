@@ -9,5 +9,5 @@
 ## 下载 ##
 版本1.0.0：[点我](https://github.com/WiseClock/ZuiYouOrganizer/releases "下载")
 
-  [1]: http://i.imgur.com/Zfgx7nJ.png
+  [1]: http://i.imgur.com/mTzvHBz.png
   [2]: http://i.imgur.com/BOq2PF7.png
