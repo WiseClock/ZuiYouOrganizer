@@ -62,10 +62,10 @@ namespace ZuiYouNameOrganizer
                     Console.Write("请选择：");
                     option = Console.ReadLine().Trim();
                     if (option == "")
-                        option = "1";
+                        option = "6";
                     else if (option.ToLower() == "exit" || option.ToLower() == "quit")
-                        option = "5";
-                } while (!int.TryParse(option, out optionNum) || optionNum < 1 || optionNum > 6);
+                        option = "7";
+                } while (!int.TryParse(option, out optionNum) || optionNum < 1 || optionNum > 7);
 
                 Console.WriteLine();
                 switch (optionNum)
@@ -74,18 +74,21 @@ namespace ZuiYouNameOrganizer
                         UpdateNameList();
                         break;
                     case 2:
-                        PrintFormerNameList();
+                        UpdateNameList(true);
                         break;
                     case 3:
-                        PrintFollowList();
+                        PrintFormerNameList();
                         break;
                     case 4:
-                        GetOwnerID();
+                        PrintFollowList();
                         break;
                     case 5:
-                        ShowMenu();
+                        GetOwnerID();
                         break;
                     case 6:
+                        ShowMenu();
+                        break;
+                    case 7:
                         return;
                     default:
                         break;
@@ -97,11 +100,12 @@ namespace ZuiYouNameOrganizer
         private void ShowMenu()
         {
             Console.WriteLine("1. 更新关注人昵称存档");
-            Console.WriteLine("2. 曾用名列表");
-            Console.WriteLine("3. 关注列表");
-            Console.WriteLine("4. 重设个人ID");
-            Console.WriteLine("5. 菜单");
-            Console.WriteLine("6. 结束");
+            Console.WriteLine("2. 使用个人资料更新存档（确保最新，但很慢）");
+            Console.WriteLine("3. 曾用名列表");
+            Console.WriteLine("4. 关注列表");
+            Console.WriteLine("5. 重设个人ID");
+            Console.WriteLine("6. 菜单");
+            Console.WriteLine("7. 结束");
         }
 
         private void GetOwnerID()
@@ -218,7 +222,14 @@ namespace ZuiYouNameOrganizer
 
         private void UpdateNameList()
         {
-            if (_users.Count == 0)
+            UpdateNameList(false);
+        }
+
+        private void UpdateNameList(bool force)
+        {
+            if (force)
+                GetAllFollowing(force);
+            else if (_users.Count == 0)
                 GetAllFollowing();
 
             JObject nameList = new JObject();
@@ -291,14 +302,19 @@ namespace ZuiYouNameOrganizer
 
         private void GetAllFollowing()
         {
+            GetAllFollowing(false);
+        }
+
+        private void GetAllFollowing(bool force)
+        {
             List<User> newUsers = new List<User>();
             Console.Write("正在获取关注列表");
-            GetFollowing(newUsers, "0");
+            GetFollowing(newUsers, "0", force);
             Console.Write("\n\n");
             _users = newUsers;
         }
 
-        private void GetFollowing(List<User> newUsers, string offset)
+        private void GetFollowing(List<User> newUsers, string offset, bool force)
         {
             Console.Write(".");
 
@@ -334,6 +350,8 @@ namespace ZuiYouNameOrganizer
             {
                 string uid = user["id"].ToString();
                 string uname = user["name"].ToString();
+                if (force)
+                    uname = ForceGetFromProfile(uid);
                 User u = new User(uname, uid);
                 newUsers.Add(u);
             }
@@ -341,7 +359,38 @@ namespace ZuiYouNameOrganizer
             Thread.Sleep(200);
 
             if (more == 1)
-                GetFollowing(newUsers, next_offset.ToString());
+                GetFollowing(newUsers, next_offset.ToString(), force);
+        }
+
+        private string ForceGetFromProfile(string id)
+        {
+            string url = "http://tbapi.ixiaochuan.cn/user/profile?sign=" + UtilHelper.GetTimeMD5();
+            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
+
+            req.ContentType = "application/json";
+            req.Accept = "*/*";
+            req.Method = "POST";
+            req.Host = "tbapi.ixiaochuan.cn";
+            req.UserAgent = "tieba/3.0.2 (iPhone; iOS 10.0.2; Scale/2.00)";
+
+            string data = "{\"mid\":" + id + ", \"h_ts\":" + UtilHelper.GetTimeStamp() + "}";
+            byte[] mybyte = Encoding.Default.GetBytes(data);
+            req.ContentLength = mybyte.Length;
+            using (Stream stream = req.GetRequestStream())
+                stream.Write(mybyte, 0, mybyte.Length);
+
+            HttpWebResponse res = (HttpWebResponse)req.GetResponse();
+            StreamReader reader = new StreamReader(res.GetResponseStream(), Encoding.UTF8);
+            string dat = reader.ReadToEnd();
+
+            res.Close();
+            reader.Close();
+
+            JObject j = JObject.Parse(dat);
+            JObject jData = (JObject)j["data"];
+            JObject jInfo = (JObject)jData["member_info"];
+
+            return jInfo["name"].ToString();
         }
     }
 }
